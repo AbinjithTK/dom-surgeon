@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="DOM-Surgeon runs a live WCAG accessibility and runtime-reliability audit inside the browser tab, and exposes the same engine to AI agents through WebMCP." />
+    <title>DOM-Surgeon — runtime accessibility auditor</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">Skip to audit workspace</a>
+
+    <header class="topbar">
+      <div class="identity">
+        <span class="mark" aria-hidden="true"></span>
+        <div class="identity-text">
+          <span class="product">DOM&#8209;Surgeon</span>
+          <span class="descriptor">Runtime accessibility &amp; reliability auditor</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span id="mcp-badge" class="badge badge--idle">Checking WebMCP</span>
+      </div>
+    </header>
+
+    <main class="shell">
+      <!-- ================= audit workspace ================= -->
+      <section id="workspace" class="panel" aria-labelledby="workspace-title">
+        <div class="panel-head">
+          <h1 id="workspace-title">Audit</h1>
+          <div class="controls">
+            <label class="field-inline" for="scope">
+              <span>Scope</span>
+              <select id="scope">
+                <option value="#patient">Demo checkout</option>
+                <option value="body">Entire page</option>
+              </select>
+            </label>
+            <label class="field-inline" for="level">
+              <span>Level</span>
+              <select id="level">
+                <option value="AA">WCAG AA</option>
+                <option value="AAA">WCAG AAA</option>
+              </select>
+            </label>
+            <button id="run-audit" class="btn btn--primary" type="button">Run audit</button>
+          </div>
+        </div>
+
+        <div id="summary" class="summary" role="status" aria-live="polite"></div>
+
+        <div id="findings" class="findings" aria-label="Audit findings">
+          <div class="empty">
+            <h3>Ready to audit</h3>
+            <p>
+              Run the audit to check accessible names, image alternatives, colour
+              contrast, keyboard focus order, duplicate ids, and runtime errors
+              against the live rendered DOM.
+            </p>
+            <p class="empty-note">
+              Works without an AI agent. When WebMCP is available, an agent can
+              drive the same engine conversationally.
+            </p>
+          </div>
+        </div>
+
+        <div class="panel-foot">
+          <button id="export-report" class="btn" type="button" disabled>Export JSON</button>
+          <button id="clear-overlays" class="btn" type="button">Clear overlays</button>
+        </div>
+      </section>
+
+      <!-- ================= page under test ================= -->
+      <section class="panel panel--subject" aria-labelledby="subject-title">
+        <div class="panel-head">
+          <h2 id="subject-title">Page under test</h2>
+          <span class="hint">Seeded with real defects so every rule has something to find.</span>
+        </div>
+
+        <div id="patient" class="subject">
+          <h3>Complete your order</h3>
+
+          <!-- DEFECT: placeholder only, no accessible name (WCAG 4.1.2) -->
+          <div class="row">
+            <input id="email" type="email" placeholder="Email address" />
+          </div>
+
+          <div class="row">
+            <label for="fullname">Full name</label>
+            <input id="fullname" type="text" autocomplete="name" />
+          </div>
+
+          <!-- DEFECT: positive tabindex reorders focus (WCAG 2.4.3) -->
+          <div class="row">
+            <label for="card">Card number</label>
+            <input id="card" type="text" tabindex="5" inputmode="numeric" autocomplete="cc-number" />
+          </div>
+
+          <div class="row row--split">
+            <div>
+              <label for="expiry">Expiry</label>
+              <input id="expiry" type="text" placeholder="MM/YY" autocomplete="cc-exp" />
+            </div>
+            <div>
+              <!-- DEFECT: duplicate id (WCAG 4.1.1) — label resolves to the first match -->
+              <label for="expiry">CVC</label>
+              <input id="expiry" type="text" autocomplete="cc-csc" />
+            </div>
+          </div>
+
+          <ul class="cart">
+            <li>
+              <span>Wireless headphones</span>
+              <span class="price">$89.00</span>
+              <!-- DEFECT: icon-only control with no accessible name -->
+              <button class="icon" data-remove="headphones">&#10005;</button>
+            </li>
+            <li>
+              <span>USB&#8209;C cable</span>
+              <span class="price">$12.00</span>
+              <button class="icon" data-remove="cable">&#10005;</button>
+            </li>
+          </ul>
+
+          <div class="total"><span>Total</span><span class="price">$101.00</span></div>
+
+          <!-- DEFECT: contrast ~2.3:1 (WCAG 1.4.3) + handler throws at runtime -->
+          <button id="pay" class="pay">Pay $101.00</button>
+          <p id="pay-status" class="pay-status" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================= integrate ================= -->
+    <section class="integrate" aria-labelledby="integrate-title">
+      <div class="integrate-head">
+        <h2 id="integrate-title">Point it at your own app</h2>
+        <p>
+          This page is a sandbox with seeded defects. The engine is UI-free and
+          runs anywhere — same-origin policy means it must execute
+          <em>inside</em> the page being audited, so here are the three ways to do that.
+        </p>
+      </div>
+
+      <div class="integrate-grid">
+        <article class="card">
+          <h3>1. Coding-agent loop <span class="tag tag--rec">recommended</span></h3>
+          <p>
+            Give your AI coding agent a shell command. It audits your dev server,
+            reads structured findings, fixes the source, and re-audits. Exit code
+            gates CI too.
+          </p>
+          <pre><code id="snip-cli">npx dom-surgeon audit http://localhost:5173 --json --fail-on critical</code></pre>
+          <button class="btn btn--sm" type="button" data-copy="snip-cli">Copy command</button>
+        </article>
+
+        <article class="card">
+          <h3>2. Drop-in script</h3>
+          <p>
+            Add one line to your dev or staging build. The audit engine and the
+            WebMCP tools register against <em>your</em> live DOM, so a browsing
+            agent can audit your real app conversationally.
+          </p>
+          <pre><code id="snip-tag">&lt;script src="ORIGIN/dom-surgeon-engine.js"&gt;&lt;/script&gt;</code></pre>
+          <button class="btn btn--sm" type="button" data-copy="snip-tag">Copy tag</button>
+        </article>
+
+        <article class="card">
+          <h3>3. Bookmarklet</h3>
+          <p>
+            Zero install. Drag this to your bookmarks bar, open any page you own,
+            and click it — findings print to the console.
+          </p>
+          <p><a id="bookmarklet" class="bookmarklet" href="#">DOM-Surgeon: audit this page</a></p>
+          <button class="btn btn--sm" type="button" data-copy="snip-bm">Copy bookmarklet</button>
+          <code id="snip-bm" hidden></code>
+        </article>
+      </div>
+
+      <p class="integrate-note">
+        Programmatic API once loaded:
+        <code>DOMSurgeon.audit()</code>, <code>DOMSurgeon.diff(baseline)</code>,
+        <code>DOMSurgeon.toMarkdown(result)</code>.
+      </p>
+    </section>
+
+    <!-- ================= diagnostics ================= -->
+    <section class="diagnostics" aria-labelledby="diag-title">
+      <h2 id="diag-title">Agent interface</h2>
+      <p id="mcp-reason" class="diag-reason"></p>
+      <p id="mcp-advice" class="diag-advice"></p>
+      <details class="tools">
+        <summary>Registered tools (<span id="tool-count">0</span>/<span id="tool-total">8</span>)</summary>
+        <ul id="tool-list"></ul>
+      </details>
+      <div id="activity-wrap" hidden>
+        <h3>Recent agent tool calls</h3>
+        <ul id="activity"></ul>
+      </div>
+    </section>
+
+    <div id="overlay-layer" class="overlay-layer" aria-hidden="true"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

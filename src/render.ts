@@ -139,8 +139,8 @@ function renderList(findings: Finding[]): void {
 
   if (!findings.length) {
     const ok = el("div", "empty empty--pass");
-    ok.appendChild(el("h3", undefined, "No issues detected"));
-    ok.appendChild(el("p", undefined, "Every rule passed for the current scope."));
+    ok.appendChild(el("h2", undefined, "No barriers detected"));
+    ok.appendChild(el("p", undefined, "Every check passed for the current region."));
     host.appendChild(ok);
     return;
   }
@@ -199,6 +199,21 @@ function renderList(findings: Finding[]): void {
 
 // ------------------------------------------------------------- activity
 
+/**
+ * Show a plain-language account of what was just repaired, at the top of the
+ * findings panel. Call AFTER publishFindings, which replaces that panel's
+ * children. Built with textContent — the narrative embeds page-derived strings.
+ */
+export function announce(message: string, tone: "repair" | "info" = "repair"): void {
+  const host = byId("findings");
+  if (!host) return;
+  const note = el("div", `repair-note repair-note--${tone}`);
+  note.setAttribute("role", "status");
+  note.setAttribute("aria-live", "polite");
+  note.appendChild(el("p", "repair-note-text", message));
+  host.prepend(note);
+}
+
 export function logToolCall(name: string): void {
   const host = byId("activity");
   if (!host) return;
@@ -211,7 +226,6 @@ export function logToolCall(name: string): void {
 }
 
 // ------------------------------------------------------------- export
-
 export function exportReport(): void {
   const blob = new Blob([JSON.stringify({ generatedAt: new Date().toISOString(), findings: lastFindings }, null, 2)], {
     type: "application/json",

@@ -15,7 +15,12 @@ export function cssPath(el: Element): string {
     if (marker) {
       const attr = node.hasAttribute("data-testid") ? "data-testid" : "data-remove";
       seg += `[${attr}="${CSS.escape(marker)}"]`;
-    } else if (node.id) {
+    } else if (node.id && isUnique(`#${CSS.escape(node.id)}`, node)) {
+      // Only shortcut to an id when that id actually identifies ONE element.
+      // Without this check a duplicated id produces a selector that resolves to
+      // the wrong element — and the duplicate-id rule is precisely the case that
+      // hits it, so a repair would be applied to the first twin instead of the
+      // reported one, and revert could never find it again.
       seg = `#${CSS.escape(node.id)}`;
     } else {
       const parent: Element | null = node.parentElement;

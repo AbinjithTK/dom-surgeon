@@ -135,9 +135,14 @@ export function applyFix(selector: string, ruleId: string): FixOutcome {
       const patch = `rename the second id="${id}" to id="${fresh}" and update its label[for]`;
       const fix = record(el, ruleId, "id", fresh, patch);
       el.id = fresh;
-      // Re-point a label that was silently resolving to the first match.
+      // Re-point a label that was silently resolving to the first match. This
+      // mutation must be RECORDED too, or revert restores the id and strands the
+      // label pointing at a name that no longer exists.
       const orphan = Array.from(document.querySelectorAll(`label[for="${CSS.escape(id)}"]`)).pop();
-      if (orphan && orphan.nextElementSibling === el) orphan.setAttribute("for", fresh);
+      if (orphan && orphan.nextElementSibling === el) {
+        record(orphan, ruleId, "for", fresh, patch);
+        orphan.setAttribute("for", fresh);
+      }
       return { ok: true, message: `Renamed duplicate id to "${fresh}". Source fix: ${patch}`, fix };
     }
 
@@ -148,19 +153,48 @@ export function applyFix(selector: string, ruleId: string): FixOutcome {
       return { ok: true, message: `Set <html lang="en">. Source fix: ${patch}`, fix };
     }
 
+    case "touch-target-small": {
+      // WCAG 2.5.8 asks for 24x24 CSS px. Grow the box rather than the font, so
+      // the label stays where the user already learned to look for it.
+      const r = el.getBoundingClientRect();
+      if (r.width >= 24 && r.height >= 24) {
+        return { ok: false, message: "This target already meets the 24x24px minimum." };
+      }
+      const patch = `min-width: 24px; min-height: 24px;  /* was ${Math.round(r.width)}x${Math.round(r.height)}px */`;
+      const fix = record(el, ruleId, "style", "min 24px", patch);
+      const style = (el as HTMLElement).style;
+      style.minWidth = "24px";
+      style.minHeight = "24px";
+      style.display = style.display || "inline-flex";
+      style.alignItems = "center";
+      style.justifyContent = "center";
+      return {
+        ok: true,
+        message: `Enlarged the target from ${Math.round(r.width)}x${Math.round(r.height)}px to at least 24x24px. Source fix: ${patch}`,
+        fix,
+      };
+    }
+
     default:
       return { ok: false, message: `No automatic fix available for rule "${ruleId}".` };
   }
 }
 
-/** Undo every applied fix, restoring the page to its original defective state. */
+/**
+ * Undo every applied fix, restoring the page to its original defective state.
+ *
+ * Attributes are restored by VALUE rather than special-cased per rule: `record`
+ * already captured the whole previous attribute string, so writing it back also
+ * restores an inline style that carried more than one declaration. (An earlier
+ * version cleared only `style.color`, which silently stranded any other
+ * style-based repair.)
+ */
 export function revertFixes(): number {
   let count = 0;
   for (const fix of [...applied].reverse()) {
     const { el } = safeQuery(fix.selector);
     if (!el) continue;
-    if (fix.attribute === "style") (el as HTMLElement).style.color = "";
-    else if (fix.previousValue === null) el.removeAttribute(fix.attribute);
+    if (fix.previousValue === null) el.removeAttribute(fix.attribute);
     else el.setAttribute(fix.attribute, fix.previousValue);
     count++;
   }

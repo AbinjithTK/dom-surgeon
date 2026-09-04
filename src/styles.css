@@ -11,9 +11,19 @@
   --line-soft: #212632;
   --text: #e8ebf0;
   --text-dim: #98a2b3;
-  --text-faint: #6b7686;
+  /* Was #6b7686, which measured 3.97:1 on our own panels — our own rule failed
+     it across 7 elements. Lightened until it clears 4.5:1 on the lightest
+     surface it sits on (--ink-600). The type hierarchy compresses slightly
+     against --text-dim; being readable matters more than the extra step. */
+  --text-faint: #8b95a6;
 
   --accent: #3d7dff;
+  /* --accent as TEXT on our dark panels is fine (4.75:1). As a BACKGROUND under
+     white text it was only 3.77:1 — which failed on the primary "Make this page
+     usable" button, the skip link, and the bookmarklet. This darker tone carries
+     white at 4.93:1. Use it for any filled surface; keep --accent for text,
+     borders and focus rings. */
+  --accent-strong: #2f6ae0;
   --accent-ink: #ffffff;
   --critical: #e5484d;
   --serious: #f0883e;
@@ -53,7 +63,7 @@ body {
   position: absolute;
   left: -9999px;
   top: 8px;
-  background: var(--accent);
+  background: var(--accent-strong);
   color: var(--accent-ink);
   padding: 8px 14px;
   border-radius: var(--r-md);
@@ -160,7 +170,7 @@ body {
 }
 .btn:hover:not(:disabled) { background: #29303d; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn--primary { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-ink); }
 .btn--primary:hover { background: #2f6ff0; }
 
 .panel-foot {
@@ -210,10 +220,12 @@ body {
 
 .findings { max-height: 56vh; overflow-y: auto; }
 .empty { padding: 26px 20px; max-width: 52ch; }
-.empty h3 { margin: 0 0 6px; font-size: 14px; font-weight: 620; }
+/* The empty-state heading is an h2, not an h3: it follows the panel's h1, and an
+   h3 there skipped a level — our own heading-order rule flagged it. */
+.empty h2 { margin: 0 0 6px; font-size: 14px; font-weight: 620; }
 .empty p { margin: 0 0 8px; font-size: 13px; color: var(--text-dim); }
 .empty-note { color: var(--text-faint) !important; font-size: 12px !important; }
-.empty--pass h3 { color: var(--pass); }
+.empty--pass h2 { color: var(--pass); }
 
 .finding-list { list-style: none; margin: 0; padding: 0; }
 .finding { border-bottom: 1px solid var(--line-soft); }
@@ -411,7 +423,7 @@ body {
 .bookmarklet {
   display: inline-block;
   padding: 7px 13px;
-  background: var(--accent);
+  background: var(--accent-strong);
   color: var(--accent-ink);
   border-radius: var(--r-md);
   font-size: 12.5px;
@@ -491,3 +503,43 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
+
+
+/* ---------------------------------------------------------------- repair note
+   The plain-language account of what was just repaired, shown above the list.
+   Green for a completed repair, neutral for an explanation, because the whole
+   point of the reframe is that the user reads an outcome, not a rule id. */
+
+.repair-note {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--r-md);
+  border-left: 3px solid var(--pass);
+  background: rgba(47, 184, 122, 0.09);
+}
+
+.repair-note--info {
+  border-left-color: var(--accent);
+  background: rgba(61, 125, 255, 0.09);
+}
+
+.repair-note-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.repair-note::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--pass);
+}
+
+.repair-note--info::before { background: var(--accent); }

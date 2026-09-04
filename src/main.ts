@@ -2,8 +2,10 @@ import "./styles.css";
 import { installConsoleRecorder, runAudit } from "./audit";
 import { wireSubject } from "./patient";
 import {
-  publishFindings, clearHighlights, installOverlayTracking, exportReport,
+  publishFindings, clearHighlights, installOverlayTracking, exportReport, announce,
 } from "./render";
+import { makePageUsable, barrierFor } from "./assist";
+import { revertFixes } from "./fixes";
 import { registerAllTools, onToolChange, toolNames, type WebMCPStatus } from "./webmcp";
 
 // Install the recorder before anything else so early errors are captured.
@@ -17,25 +19,76 @@ function currentOptions(): { root: string; level: "AA" | "AAA" } {
   return { root, level };
 }
 
-/** Manual audit — the path that makes the app useful with no agent present. */
+/** Find barriers — the path that makes the app useful with no agent present. */
 function runManualAudit(): void {
   const button = byId("run-audit") as HTMLButtonElement | null;
   try {
-    if (button) { button.disabled = true; button.textContent = "Auditing…"; }
+    if (button) { button.disabled = true; button.textContent = "Checking…"; }
+    const { root, level } = currentOptions();
+    const result = runAudit({ root, level });
+    publishFindings(result);
+    if (!result.findings.length) return;
+    const blocking = result.findings.filter(
+      (f) => f.severity === "critical" || f.severity === "serious"
+    );
+    announce(
+      blocking.length
+        ? `${blocking.length} of ${result.findings.length} barriers here are likely to stop you finishing. The worst: ${barrierFor(blocking[0])}`
+        : `${result.findings.length} minor barrier(s) found — none of them should stop you completing the task.`,
+      "info"
+    );
+  } catch (err) {
+    reportFailure(err);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Find barriers"; }
+  }
+}
+
+/**
+ * Repair the page for the person in front of it. This is the whole point of the
+ * product, so it must work without WebMCP too — an agent is a nicer way to reach
+ * it, not the only way.
+ */
+function runMakeUsable(): void {
+  const button = byId("make-usable") as HTMLButtonElement | null;
+  try {
+    if (button) { button.disabled = true; button.textContent = "Repairing…"; }
+    const { root, level } = currentOptions();
+    const summary = makePageUsable(root, level);
+    publishFindings(runAudit({ root, level }));
+    announce(summary.narrative);
+  } catch (err) {
+    reportFailure(err);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Make this page usable"; }
+  }
+}
+
+/** Restore the original defective state, so before/after is one click apart. */
+function runRevert(): void {
+  try {
+    const count = revertFixes();
     const { root, level } = currentOptions();
     publishFindings(runAudit({ root, level }));
+    announce(
+      count
+        ? `Undid ${count} repair${count > 1 ? "s" : ""}; the page is back to how the site ships it.`
+        : "There were no repairs to undo.",
+      "info"
+    );
   } catch (err) {
-    const host = byId("findings");
-    if (host) {
-      host.replaceChildren();
-      const p = document.createElement("p");
-      p.className = "diag-reason";
-      p.textContent = `Audit failed: ${err instanceof Error ? err.message : String(err)}`;
-      host.appendChild(p);
-    }
-  } finally {
-    if (button) { button.disabled = false; button.textContent = "Run audit"; }
+    reportFailure(err);
   }
+}
+
+function reportFailure(err: unknown): void {
+  const host = byId("findings");
+  if (!host) return;
+  host.replaceChildren();
+  const p = document.createElement("p");
+  p.className = "diag-reason";
+  p.textContent = `Failed: ${err instanceof Error ? err.message : String(err)}`;
+  host.appendChild(p);
 }
 
 function paintStatus(status: WebMCPStatus): void {
@@ -50,7 +103,7 @@ function paintStatus(status: WebMCPStatus): void {
   if (badge) {
     badge.textContent = active
       ? `WebMCP active · ${status.registered.length}/${status.total} tools`
-      : "WebMCP unavailable · manual audit ready";
+      : "No agent here — you can still repair the page yourself";
     badge.className = `badge ${active ? "badge--active" : "badge--off"}`;
   }
   if (reason) reason.textContent = status.reason;
@@ -72,6 +125,8 @@ function paintStatus(status: WebMCPStatus): void {
 
 function wireControls(): void {
   byId("run-audit")?.addEventListener("click", runManualAudit);
+  byId("make-usable")?.addEventListener("click", runMakeUsable);
+  byId("revert-fixes")?.addEventListener("click", runRevert);
   byId("export-report")?.addEventListener("click", exportReport);
   byId("clear-overlays")?.addEventListener("click", clearHighlights);
   byId("scope")?.addEventListener("change", runManualAudit);

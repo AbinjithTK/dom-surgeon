@@ -15,6 +15,13 @@ export type WebMCPExecute = (
 
 export interface WebMCPTool {
   name: string;
+  /**
+   * Human-readable label. Evidence level: the Imperative API docs show `title`
+   * on the object returned by `getTools()` (defaulting to ""), but never show it
+   * being PASSED to `registerTool`. Treated as optional and additive — an
+   * implementation that does not read it simply ignores it.
+   */
+  title?: string;
   description: string;
   inputSchema: Record<string, unknown>;
   annotations?: WebMCPAnnotations;

@@ -1,7 +1,7 @@
 {
   "name": "dom-surgeon",
   "version": "2.0.0",
-  "description": "Runtime accessibility & reliability auditor. Runs inside the live page, exposes its engine to AI agents via WebMCP, and closes the feedback loop for AI coding agents via a CLI.",
+  "description": "An agent repairs the accessibility of the live page you are on, in your own session — and hands the developer the real source fix. WebMCP tools for the person, a CLI for the coding agent.",
   "type": "module",
   "bin": {
     "dom-surgeon": "./bin/dom-surgeon.mjs"
@@ -26,7 +26,8 @@
     "build:engine": "vite build --config vite.engine.config.ts",
     "build": "npm run build:engine && tsc && vite build",
     "preview": "vite preview",
-    "audit": "node ./bin/dom-surgeon.mjs audit"
+    "audit": "node ./bin/dom-surgeon.mjs audit",
+    "verify": "node verify.mjs http://127.0.0.1:4173/"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

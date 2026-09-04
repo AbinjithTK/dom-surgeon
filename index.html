@@ -3,19 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="DOM-Surgeon runs a live WCAG accessibility and runtime-reliability audit inside the browser tab, and exposes the same engine to AI agents through WebMCP." />
-    <title>DOM-Surgeon — runtime accessibility auditor</title>
+    <meta name="description" content="DOM-Surgeon lets an AI agent repair the accessibility of the live page you are on, in your own session — naming unlabelled controls, fixing unreadable contrast, and restoring broken keyboard order — and hands the developer the real source fix." />
+    <title>DOM-Surgeon — repair the page you are on</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#workspace">Skip to audit workspace</a>
+    <a class="skip-link" href="#workspace">Skip to the repair workspace</a>
 
     <header class="topbar">
       <div class="identity">
         <span class="mark" aria-hidden="true"></span>
         <div class="identity-text">
           <span class="product">DOM&#8209;Surgeon</span>
-          <span class="descriptor">Runtime accessibility &amp; reliability auditor</span>
+          <span class="descriptor">Ask an agent to fix the page that is failing you</span>
         </div>
       </div>
       <div class="topbar-right">
@@ -27,13 +27,13 @@
       <!-- ================= audit workspace ================= -->
       <section id="workspace" class="panel" aria-labelledby="workspace-title">
         <div class="panel-head">
-          <h1 id="workspace-title">Audit</h1>
+          <h1 id="workspace-title">What&#8217;s blocking you</h1>
           <div class="controls">
             <label class="field-inline" for="scope">
-              <span>Scope</span>
+              <span>Region</span>
               <select id="scope">
-                <option value="#patient">Demo checkout</option>
-                <option value="body">Entire page</option>
+                <option value="#patient">The checkout</option>
+                <option value="body">Whole page</option>
               </select>
             </label>
             <label class="field-inline" for="level">
@@ -43,38 +43,49 @@
                 <option value="AAA">WCAG AAA</option>
               </select>
             </label>
-            <button id="run-audit" class="btn btn--primary" type="button">Run audit</button>
+            <button id="run-audit" class="btn" type="button">Find barriers</button>
+            <button id="make-usable" class="btn btn--primary" type="button">Make this page usable</button>
           </div>
         </div>
 
         <div id="summary" class="summary" role="status" aria-live="polite"></div>
 
-        <div id="findings" class="findings" aria-label="Audit findings">
+        <div id="findings" class="findings" aria-label="Barriers on this page">
           <div class="empty">
-            <h3>Ready to audit</h3>
+            <h2>This checkout is broken for a lot of people</h2>
             <p>
-              Run the audit to check accessible names, image alternatives, colour
-              contrast, keyboard focus order, duplicate ids, and runtime errors
-              against the live rendered DOM.
+              Three of its controls are invisible to a screen reader, the pay
+              button is too faint to read, and the Tab key jumps out of order.
+              None of that is visible in the source — it only exists once the
+              page is rendered and running.
+            </p>
+            <p>
+              <strong>Find barriers</strong> explains what is wrong in plain
+              language. <strong>Make this page usable</strong> repairs everything
+              that can be repaired safely, right here, so you could actually
+              finish the order.
             </p>
             <p class="empty-note">
-              Works without an AI agent. When WebMCP is available, an agent can
-              drive the same engine conversationally.
+              Both work with no AI agent present. With WebMCP available, you can
+              just say &#8220;I can&#8217;t read this page, fix it&#8221; and the
+              agent does it for you. Repairs last only for your session — nothing
+              is saved to the site, and the developer still gets the real source fix.
             </p>
           </div>
         </div>
 
         <div class="panel-foot">
           <button id="export-report" class="btn" type="button" disabled>Export JSON</button>
+          <button id="revert-fixes" class="btn" type="button">Undo repairs</button>
           <button id="clear-overlays" class="btn" type="button">Clear overlays</button>
         </div>
       </section>
 
-      <!-- ================= page under test ================= -->
+      <!-- ================= the page being repaired ================= -->
       <section class="panel panel--subject" aria-labelledby="subject-title">
         <div class="panel-head">
-          <h2 id="subject-title">Page under test</h2>
-          <span class="hint">Seeded with real defects so every rule has something to find.</span>
+          <h2 id="subject-title">A checkout, exactly as it ships</h2>
+          <span class="hint">Real defects, of the kind that reach production every day.</span>
         </div>
 
         <div id="patient" class="subject">
@@ -134,11 +145,13 @@
     <!-- ================= integrate ================= -->
     <section class="integrate" aria-labelledby="integrate-title">
       <div class="integrate-head">
-        <h2 id="integrate-title">Point it at your own app</h2>
+        <h2 id="integrate-title">Point it at a page that matters</h2>
         <p>
-          This page is a sandbox with seeded defects. The engine is UI-free and
-          runs anywhere — same-origin policy means it must execute
-          <em>inside</em> the page being audited, so here are the three ways to do that.
+          This checkout is a sandbox. The engine is UI-free and runs anywhere, but
+          same-origin policy means it must execute <em>inside</em> the page being
+          repaired — so here are the three ways in. The bookmarklet is the one an
+          affected person can use on a site they do not own; the other two are for
+          the developer who has to fix it at the source.
         </p>
       </div>
 
@@ -190,7 +203,7 @@
       <p id="mcp-reason" class="diag-reason"></p>
       <p id="mcp-advice" class="diag-advice"></p>
       <details class="tools">
-        <summary>Registered tools (<span id="tool-count">0</span>/<span id="tool-total">8</span>)</summary>
+        <summary>Registered tools (<span id="tool-count">0</span>/<span id="tool-total">15</span>)</summary>
         <ul id="tool-list"></ul>
       </details>
       <div id="activity-wrap" hidden>

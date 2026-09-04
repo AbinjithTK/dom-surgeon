@@ -8,6 +8,9 @@ import { accessibleName, role } from "./a11y";
 import { effectiveBackground, contrastRatio, formatRatio, rgbaToCss, requiredRatio } from "./contrast";
 import { publishFindings, highlight, clearHighlights, logToolCall } from "./render";
 import { applyFix, revertFixes, appliedFixes } from "./fixes";
+import {
+  makePageUsable, describeBarriers, setReadingPreferences, clearReadingPreferences,
+} from "./assist";
 
 /** WebMCP recommends <=1.5K chars per tool output. Stay under it. */
 const OUTPUT_BUDGET = 1400;
@@ -45,6 +48,93 @@ function renderFindings(findings: Finding[], heading: string): string {
 
 export function buildTools(): WebMCPTool[] {
   return [
+    // ---------------------------------------------------------------------
+    // For the person the page is failing. These come first deliberately: the
+    // audit tools below describe a defect to an engineer, these two get someone
+    // through the task they came here to finish.
+    // ---------------------------------------------------------------------
+    {
+      name: "describe_barriers",
+      title: "What is blocking me on this page",
+      description:
+        "Explain, in plain language, what on this page will stop someone using a screen reader, a keyboard only, or needing readable text — and which of those can be repaired right now versus needing a developer. Use this when a person says the page is unusable, confusing, or unreadable.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "CSS selector to limit the check to one region." },
+        },
+      },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute: guard("describe_barriers", (input) => {
+        const report = describeBarriers(str(input, "root"));
+        if (!report.total) return "I found nothing that should block you on this page.";
+        const head = `${report.total} barrier(s) on this page, ${report.blocking} of them likely to stop you completing the task.`;
+        return `${head}\n${report.lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}\n\nAsk me to make the page usable and I will repair the ones that can be repaired safely.`;
+      }),
+    },
+
+    {
+      name: "make_page_usable",
+      title: "Repair this page so I can use it",
+      description:
+        "Repair every barrier on the live page that can be fixed safely, so the person can complete the task now: name unlabelled controls, describe images, raise unreadable contrast, restore a broken keyboard tab order, re-wire mislinked labels, and enlarge targets too small to hit. Re-audits afterwards and reports what is left. Session-only and reversible; nothing is saved to the site.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "CSS selector to limit repairs to one region." },
+        },
+      },
+      annotations: { readOnlyHint: false, untrustedContentHint: true },
+      execute: guard("make_page_usable", (input) => {
+        const summary = makePageUsable(str(input, "root"));
+        publishFindings({
+          findings: summary.remaining,
+          scope: str(input, "root") ?? "#patient",
+          level: "AA",
+        });
+        if (summary.repaired.length) {
+          highlight(summary.repaired.map((f) => f.selector), "focus");
+          logToolCall("make_page_usable ✓");
+        }
+        const left = summary.remaining.length
+          ? `\nStill unresolved (needs a person):\n${summary.remaining
+              .map((f) => `- ${f.rule}${f.selector ? ` @ ${f.selector}` : ""}`)
+              .join("\n")}`
+          : "";
+        return `${summary.narrative}${left}\n\nUse revert_fixes to restore the original state, or suggest_code_patch for the source-level changes a developer should commit.`;
+      }),
+    },
+
+    {
+      name: "set_reading_preferences",
+      title: "Adjust the page for how I read",
+      description:
+        "Adapt the live page to one person's reading needs: scale the text up, draw an unmissable keyboard focus ring, stop animation and transitions, or widen letter and line spacing. These are accommodations, not defects — a page can pass every accessibility check and still be unreadable for someone. Applies to this session only.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          textScale: { type: "number", description: "Text size multiplier, 1 to 3. 1.5 is 50 percent larger." },
+          strongFocus: { type: "boolean", description: "Draw a high-visibility ring on the focused element." },
+          reduceMotion: { type: "boolean", description: "Stop animations and transitions." },
+          readableSpacing: { type: "boolean", description: "Widen line, letter and word spacing." },
+          reset: { type: "boolean", description: "Remove all reading adjustments." },
+        },
+      },
+      annotations: { readOnlyHint: false },
+      execute: guard("set_reading_preferences", (input) => {
+        if (input.reset === true) return clearReadingPreferences();
+        const prefs: Parameters<typeof setReadingPreferences>[0] = {};
+        if (typeof input.textScale === "number") prefs.textScale = input.textScale;
+        if (typeof input.strongFocus === "boolean") prefs.strongFocus = input.strongFocus;
+        if (typeof input.reduceMotion === "boolean") prefs.reduceMotion = input.reduceMotion;
+        if (typeof input.readableSpacing === "boolean") prefs.readableSpacing = input.readableSpacing;
+        if (!Object.keys(prefs).length) {
+          return "Tell me what to adjust: textScale, strongFocus, reduceMotion, or readableSpacing. Pass reset=true to undo.";
+        }
+        return setReadingPreferences(prefs);
+      }),
+    },
+
     {
       name: "audit_page",
       description:
@@ -293,7 +383,7 @@ export function buildTools(): WebMCPTool[] {
           selector: { type: "string", description: "CSS selector of the element to repair." },
           ruleId: {
             type: "string",
-            enum: ["name-missing", "image-alt-missing", "contrast-insufficient", "tabindex-positive", "duplicate-id", "html-lang-missing"],
+            enum: ["name-missing", "image-alt-missing", "contrast-insufficient", "tabindex-positive", "duplicate-id", "touch-target-small", "html-lang-missing"],
             description: "Which finding to fix.",
           },
         },
